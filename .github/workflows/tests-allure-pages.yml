@@ -50,7 +50,7 @@ jobs:
           -Dcucumber.filter.tags=${{ github.event.inputs.cucumber_tag || '@E2E' }}
           -Dbrowser=${{ github.event.inputs.browser || 'chrome' }}
           -Ddataproviderthreadcount=${{ github.event.inputs.parallel_count || '2' }}
-          -Dheadless=true
+          -Dheadless=false
 
       - name: Upload Allure results
         if: always()
