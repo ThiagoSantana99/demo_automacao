@@ -1,0 +1,110 @@
+name: Tests And Allure Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      cucumber_tag:
+        description: "Tag do Cucumber para filtrar a execucao"
+        required: false
+        default: "@E2E and @regression"
+      browser:
+        description: "Browser da execucao"
+        required: false
+        default: "chrome"
+      parallel_count:
+        description: "Quantidade de threads para o DataProvider"
+        required: false
+        default: "2"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Run automated tests
+        run: >
+          mvn clean test
+          -Dcucumber.filter.tags=${{ github.event.inputs.cucumber_tag || '@E2E' }}
+          -Dbrowser=${{ github.event.inputs.browser || 'chrome' }}
+          -Ddataproviderthreadcount=${{ github.event.inputs.parallel_count || '2' }}
+          -Dheadless=true
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: target/allure-results
+          if-no-files-found: warn
+
+      - name: Upload Surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports
+          if-no-files-found: warn
+
+  deploy-pages:
+    if: always()
+    needs: tests
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Allure results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: target/allure-results
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Allure CLI
+        run: npm install -g allure-commandline --no-audit --no-fund
+
+      - name: Generate Allure report
+        run: allure generate target/allure-results --clean -o target/allure-report
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/allure-report
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
