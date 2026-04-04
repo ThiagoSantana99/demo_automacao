@@ -24,7 +24,7 @@ Implementa o padrao Page Object Model. As classes encapsulam elementos e acoes d
 
 - `src/test/java/factory`
 Centraliza a criacao e o gerenciamento do WebDriver.
-`DriverFactory` cria instancias para `CHROME`, `FIREFOX` e `EDGE`.
+`DriverFactory` cria instancias de browser.
 `DriverManager` usa `ThreadLocal<WebDriver>` para isolar o driver por thread e suportar execucao paralela.
 
 - `src/test/java/hooks`
@@ -36,13 +36,13 @@ Contem o runner principal da suite.
 `TestRunner` integra Cucumber com TestNG e expoe os cenarios via `DataProvider(parallel = true)`, permitindo paralelismo.
 
 - `src/test/java/utils`
-Contem classes utilitarias como apoio a interacoes, screenshots e representacao de artigos retornados.
+Contem classes utilitarias como apoio a interacoes, screenshots, logs e representacao de artigos retornados.
 
 - `src/test/java/config`
 Contem suporte a leitura de parametros de execucao.
 
 - `pom.xml`
-Centraliza dependencias, plugins de build, configuracao do Surefire, limpeza de artefatos e geracao de relatorios Allure.
+Centraliza dependencias, plugins de build, configuracao do Surefire, geracao de JavaDoc e geracao de relatorios Allure.
 
 ## Fluxo de Execucao
 
@@ -51,14 +51,14 @@ O fluxo implementado hoje funciona assim:
 1. O `TestRunner` localiza as features e os pacotes de `steps` e `hooks`.
 2. O `Hooks @Before` identifica o browser informado por propriedade de sistema (`-Dbrowser`) e cria o driver correspondente.
 3. Os steps chamam os page objects para executar a busca e validar resultados.
-4. O `Hooks @After` captura screenshot, anexa evidencias e finaliza o driver.
+4. O `Hooks @After` captura screenshot, registra logs, anexa evidencias e finaliza o driver.
 5. O Maven Surefire executa os testes e respeita a configuracao de paralelismo do `DataProvider`.
 
 ## Bibliotecas Utilizadas no POM
 
 As principais bibliotecas declaradas no `pom.xml` sao:
 
-- `org.seleniumhq.selenium:selenium-java:4.18.1`
+- `org.seleniumhq.selenium:selenium-java:4.41.0`
 Biblioteca principal para automacao de navegadores e interacao com a interface web.
 
 - `io.cucumber:cucumber-java:7.15.0`
@@ -102,9 +102,19 @@ Gera relatorios Allure na fase `verify`.
 - `maven-javadoc-plugin:3.4.1`
 Gera documentacao JavaDoc para o codigo de testes.
 
-## Como Executar o Projeto
+## Execucao Local
 
-O comando base para execucao via Maven e:
+### Pre-requisitos locais
+
+Para executar o projeto localmente, o ambiente deve possuir:
+
+- Java 17
+- Maven instalado e configurado no `PATH`
+- Google Chrome ou Microsoft Edge instalados na maquina
+- Conectividade com a internet para download de drivers pelo WebDriverManager
+- Allure CLI instalado, caso voce queira abrir o relatorio localmente
+
+### Comando base de execucao
 
 ```bash
 mvn clean test -Dcucumber.filter.tags=@AGI -Dbrowser=chrome -Ddataproviderthreadcount=3
@@ -116,42 +126,187 @@ mvn clean test -Dcucumber.filter.tags=@AGI -Dbrowser=chrome -Ddataproviderthread
 Limpa os artefatos da execucao anterior.
 
 - `test`
-Executa a suite de testes automatizados.
+Executa a suite automatizada.
 
 - `-Dcucumber.filter.tags=@AGI`
-Permite selecionar quais testes serao executados por TAG. Voce pode trocar `@AGI` por qualquer outra TAG existente na feature, por exemplo:
-
-```bash
-mvn clean test -Dcucumber.filter.tags=@negative -Dbrowser=chrome -Ddataproviderthreadcount=2
-```
+Permite selecionar a TAG dos testes que serao executados.
 
 - `-Dbrowser=chrome`
-Define o navegador de execucao. Os browsers suportados pelo projeto sao:
+Define o navegador da execucao. No estado atual do projeto, os browsers suportados pela `DriverFactory` sao:
 `chrome`
-`firefox`
 `edge`
 
-Exemplos:
-
-```bash
-mvn clean test -Dcucumber.filter.tags=@AGI -Dbrowser=firefox -Ddataproviderthreadcount=3
-```
-
-```bash
-mvn clean test -Dcucumber.filter.tags=@AGI -Dbrowser=edge -Ddataproviderthreadcount=3
-```
-
 - `-Ddataproviderthreadcount=3`
-Define a quantidade de testes executados em paralelo pelo `DataProvider` do TestNG/Cucumber.
-Se quiser executar mais ou menos testes em paralelo, basta alterar o valor:
+Define a quantidade de testes em paralelo no `DataProvider`.
+
+- `-Dheadless=true` ou `-Dheadless=false`
+Controla a execucao em modo headless. Para CI, recomenda-se `true`.
+
+### Exemplos de execucao local
 
 ```bash
-mvn clean test -Dcucumber.filter.tags=@AGI -Dbrowser=chrome -Ddataproviderthreadcount=1
+mvn clean test -Dcucumber.filter.tags=@AGI -Dbrowser=chrome -Ddataproviderthreadcount=2 -Dheadless=false
 ```
 
 ```bash
-mvn clean test -Dcucumber.filter.tags=@AGI -Dbrowser=chrome -Ddataproviderthreadcount=5
+mvn clean test -Dcucumber.filter.tags=@negative -Dbrowser=edge -Ddataproviderthreadcount=1 -Dheadless=false
 ```
+
+### Geracao local do relatorio Allure
+
+Depois da execucao dos testes, os resultados ficam em:
+
+```text
+target/allure-results
+```
+
+Para abrir o relatorio localmente:
+
+```bash
+allure serve target/allure-results
+```
+
+Ou para gerar o HTML localmente:
+
+```bash
+allure generate target/allure-results --clean -o target/allure-report
+```
+
+### Geracao local do JavaDoc
+
+Para gerar a documentacao JavaDoc localmente:
+
+```bash
+mvn -DskipTests javadoc:javadoc
+```
+
+O resultado sera gerado em:
+
+```text
+target/apidocs
+```
+
+### Logs locais
+
+Os logs da execucao sao gravados na pasta:
+
+```text
+logs/
+```
+
+Cada execucao gera um arquivo unico no formato:
+
+```text
+logs/test_yyyy-MM-dd_HH-mm-ss.log
+```
+
+## Execucao via GitHub Actions
+
+O projeto possui um workflow versionado em [`.github/workflows/tests-allure-pages.yml`](/C:/Users/admin/IdeaProjects/demo_automacao/.github/workflows/tests-allure-pages.yml) para:
+
+- executar os testes com Maven
+- gerar o relatorio Allure
+- gerar o JavaDoc
+- publicar os artefatos de documentacao no GitHub Pages
+- disponibilizar logs e relatorios como artefatos da execucao
+
+### Pre-requisitos no GitHub
+
+Para a execucao via GitHub Actions funcionar corretamente, o repositorio deve possuir:
+
+- repositorio publicado no GitHub
+- GitHub Actions habilitado em `Settings > Actions`
+- GitHub Pages habilitado em `Settings > Pages`
+- `Source: GitHub Actions` configurado em `Settings > Pages`
+- permissao de escrita em Pages para o workflow
+
+### Como o workflow executa
+
+O workflow executa automaticamente em `push` nas branches:
+
+- `main`
+- `master`
+
+Tambem pode ser executado manualmente pela aba `Actions`, usando `workflow_dispatch`.
+
+### Parametros do workflow manual
+
+Ao executar manualmente pelo GitHub Actions, o workflow permite informar:
+
+- `cucumber_tag`
+Define a TAG a ser executada. Exemplo: `@AGI`, `@E2E`, `@negative`.
+
+- `browser`
+Define o navegador da execucao. Exemplo: `chrome` ou `edge`.
+
+- `parallel_count`
+Define a quantidade de execucoes paralelas do `DataProvider`.
+
+### Comando executado no pipeline
+
+O job de testes executa a suite com base neste comando:
+
+```bash
+mvn clean test -Dcucumber.filter.tags=<TAG> -Dbrowser=<BROWSER> -Ddataproviderthreadcount=<QTDE> -Dheadless=true
+```
+
+No CI, a execucao ocorre em modo headless para compatibilidade com o ambiente do GitHub Actions.
+
+### Artefatos publicados pelo GitHub Actions
+
+Ao final da execucao, o workflow publica:
+
+- `allure-results`
+- `surefire-reports`
+- `execution-logs`
+
+Os logs podem ser acessados assim:
+
+1. Abra a aba `Actions`
+2. Selecione a execucao desejada
+3. Role ate a secao `Artifacts`
+4. Baixe o artefato `execution-logs`
+
+## GitHub Pages
+
+O workflow prepara o conteudo do GitHub Pages com a seguinte estrutura:
+
+- `README.md` na raiz publicada
+- relatorio Allure em `/report/`
+- JavaDoc em `/javadoc/`
+
+### Links de acesso no GitHub Pages
+
+Substitua `SEU-USUARIO` e `SEU-REPO` pelos valores reais do repositorio:
+
+- Arquivo README publicado:
+  `https://SEU-USUARIO.github.io/SEU-REPO/README.md`
+
+- Relatorio Allure:
+  `https://SEU-USUARIO.github.io/SEU-REPO/report/`
+
+- JavaDoc:
+  `https://SEU-USUARIO.github.io/SEU-REPO/javadoc/`
+
+Observacao importante:
+- a raiz `https://SEU-USUARIO.github.io/SEU-REPO/` publica o arquivo `README.md`, mas o GitHub Pages nao o renderiza automaticamente como pagina inicial
+- para uma home navegavel na raiz, seria necessario publicar um `index.html`
+
+## Geracao do JavaDoc via Workflow
+
+No job de publicacao do GitHub Pages, o workflow executa:
+
+```bash
+mvn -DskipTests javadoc:javadoc
+```
+
+Depois disso, o conteudo gerado em `target/apidocs` e copiado para:
+
+```text
+/javadoc/
+```
+
+no GitHub Pages.
 
 ## Paralelismo
 
@@ -165,103 +320,39 @@ No `pom.xml`, o plugin `maven-surefire-plugin` ja possui a propriedade `dataprov
 
 Tambem existe configuracao paralela em [`testng.xml`](/C:/Users/admin/IdeaProjects/demo_automacao/testng.xml), com `parallel="tests"` e `thread-count="2"`, que pode ser ajustada conforme a estrategia de execucao desejada.
 
-## Execucao via GitHub Actions
+## BDD
 
-O projeto possui um workflow versionado em [`.github/workflows/tests-allure-pages.yml`](/C:/Users/admin/IdeaProjects/demo_automacao/.github/workflows/tests-allure-pages.yml) para:
+Os cenarios existentes no arquivo [`buscaartigosblog.feature`](/C:/Users/admin/IdeaProjects/demo_automacao/src/test/resources/features/buscaartigosblog.feature) cobrem os seguintes comportamentos:
 
-- executar os testes com Maven
-- gerar o relatorio Allure
-- publicar o relatorio no GitHub Pages
+- `Busca <Nome do Caso de Teste>`
+Valida a busca positiva via teclado. O usuario informa um termo no campo de pesquisa, pressiona `Enter`, visualiza a lista de artigos e confirma que os resultados correspondem ao termo pesquisado.
 
-### O que o workflow faz
+- `por palavra-chave valida usando enter`
+Verifica que a busca por `"pix"` retorna artigos relacionados quando a submissao ocorre com `Enter`.
 
-1. Faz checkout do repositorio
-2. Configura Java 17
-3. Executa `mvn clean test`
-4. Armazena os artefatos de teste
-5. Instala o Allure CLI
-6. Gera o HTML do relatorio Allure
-7. Publica o conteudo no GitHub Pages
+- `e case insensitive`
+Valida que a busca nao diferencia maiusculas e minusculas, retornando resultados tambem para `"PIX"`.
 
-### Como executar pelo GitHub
+- `com espacos extras`
+Valida que a busca continua funcionando quando o termo possui espacos no inicio e no fim, como `" pix "`.
 
-Voce pode executar de duas formas:
+- `Tentativa de Busca - <Nome do Caso de Teste>`
+Valida o comportamento negativo da funcionalidade, garantindo que o sistema apresente a mensagem correta quando nao existirem resultados validos para o termo pesquisado.
 
-- Automaticamente a cada `push` nas branches `main` ou `master`
-- Manualmente pela aba `Actions`, usando o gatilho `workflow_dispatch`
+- `Busca sem resultados`
+Verifica que um termo inexistente, como `"xyzabc123"`, nao retorna artigos e exibe a mensagem de busca sem retorno.
 
-### Parametros do workflow manual
+- `Busca com caracteres especiais`
+Verifica que a busca por `%$#@!` nao gera resultados indevidos e apresenta a mensagem adequada de nenhum resultado encontrado.
 
-Ao executar manualmente pelo GitHub Actions, o workflow permite informar:
+- `Busca com termo parcial`
+Valida o comportamento quando o usuario informa um termo parcial acentuado, como `"emprés"`, e o sistema retorna a mensagem de nao encontrado.
 
-- `cucumber_tag`
-Define a TAG a ser executada. Exemplo: `@AGI` ou `@negative`
+- `Busca usando clique na lupa`
+Verifica que a funcionalidade de busca tambem funciona quando a submissao e feita pelo icone da lupa, sem uso da tecla `Enter`.
 
-- `browser`
-Define o navegador da execucao. Valores esperados: `chrome`, `firefox` ou `edge`
-
-- `parallel_count`
-Define a quantidade de execucoes paralelas do `DataProvider`
-
-### Comando executado no pipeline
-
-O workflow executa a suite com a mesma base usada localmente:
-
-```bash
-mvn clean test -Dcucumber.filter.tags=@AGI -Dbrowser=chrome -Ddataproviderthreadcount=3 -Dheadless=true
-```
-
-No CI, a execucao ocorre em modo headless para compatibilidade com o ambiente do GitHub Actions.
-
-### Geracao do relatorio Allure
-
-Depois da execucao dos testes, o workflow gera o relatorio Allure a partir do diretorio:
-
-```text
-target/allure-results
-```
-
-O HTML final e produzido em:
-
-```text
-target/allure-report
-```
-
-### Como publicar no GitHub Pages
-
-Para que a publicacao funcione no GitHub, configure o repositorio com:
-
-1. Acesse `Settings`
-2. Acesse `Pages`
-3. Em `Build and deployment`, selecione `Source: GitHub Actions`
-4. Salve a configuracao
-
-Depois disso, cada execucao do workflow fara o deploy automatico do relatorio.
-
-### Como acessar o relatorio publicado
-
-Apos a conclusao do workflow, o relatorio podera ser acessado pela URL:
-
-```text
-https://<usuario-ou-organizacao>.github.io/<nome-do-repositorio>/
-```
-
-Exemplo:
-
-```text
-https://seu-usuario.github.io/demo_automacao/
-```
-
-O link final publicado tambem fica disponivel:
-
-- no resumo do job de deploy do GitHub Actions
-- na secao `Environments` do ambiente `github-pages`
-
-### Observacoes importantes
-
-- O deploy do Pages depende de o repositorio estar publicado no GitHub
-- O GitHub Pages precisa estar habilitado com `Source: GitHub Actions`
-- O workflow publica a versao mais recente do relatorio a cada nova execucao elegivel
+- `Busca ignora acentuacao`
+Valida que a busca trata equivalencia entre termos com e sem acento, retornando conteudos de `"empréstimo"` mesmo quando o usuario pesquisa por `"emprestimo"`.
 
 ## Estrutura Resumida
 
@@ -280,6 +371,7 @@ src
       features
 pom.xml
 testng.xml
+.github/workflows/tests-allure-pages.yml
 ```
 
 ## Requisitos
@@ -288,12 +380,12 @@ Para executar o projeto corretamente, o ambiente deve possuir os seguintes requi
 
 - Java 17
 - Maven
-- Google Chrome, Mozilla Firefox ou Microsoft Edge instalados na maquina
+- Google Chrome ou Microsoft Edge instalados na maquina
 - Allure CLI instalado para gerar e abrir relatorios localmente
 
 ### Bibliotecas utilizadas no projeto
 
-- `org.seleniumhq.selenium:selenium-java:4.18.1`
+- `org.seleniumhq.selenium:selenium-java:4.41.0`
 - `io.cucumber:cucumber-java:7.15.0`
 - `io.cucumber:cucumber-testng:7.15.0`
 - `org.testng:testng:7.9.0`
@@ -311,26 +403,6 @@ Para executar o projeto corretamente, o ambiente deve possuir os seguintes requi
 - `io.qameta.allure:allure-maven:2.12.0`
 - `org.apache.maven.plugins:maven-javadoc-plugin:3.4.1`
 
-### Allure como requisito
-
-O projeto usa integracao com Allure nas bibliotecas e no build Maven:
-
-- `io.qameta.allure:allure-testng:2.25.0`
-- `io.qameta.allure:allure-cucumber7-jvm:2.24.0`
-- `io.qameta.allure:allure-maven:2.12.0`
-
-Para visualizar os relatorios localmente, e recomendado instalar o Allure CLI.
-
-Exemplos de uso apos a execucao dos testes:
-
-```bash
-allure serve target/allure-results
-```
-
-```bash
-allure generate target/allure-results --clean -o target/allure-report
-```
-
 ## Observacao
 
-Como a criacao do driver depende do parametro `-Dbrowser`, recomenda-se manter os valores `chrome`, `firefox` ou `edge` para evitar fallback automatico para Chrome quando um valor invalido for informado.
+Como a criacao do driver depende do parametro `-Dbrowser`, recomenda-se manter os valores suportados pela `DriverFactory` para evitar fallback automatico para Chrome quando um valor invalido for informado.

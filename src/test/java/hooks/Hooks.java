@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import utils.ScreenshotUtil;
 
 import java.io.File;
-import java.util.Objects;
 
 import static io.qameta.allure.Allure.addAttachment;
 
@@ -18,35 +17,48 @@ import static io.qameta.allure.Allure.addAttachment;
  * Classe Hooks para gerenciar o ciclo de vida dos testes Cucumber.
  * <p>
  * Responsabilidades:
- * - Inicializar o WebDriver antes de cada cenário (@Before);
- * - Finalizar o WebDriver e anexar artefatos após cada cenário (@After);
+ * <p>
+ * - Inicializar o WebDriver antes de cada cenario;
+ * <p>
+ * - Finalizar o WebDriver ao final de cada execucao;
+ * <p>
  * - Capturar screenshots e logs em caso de falha;
- * - Validar e converter configurações de browser;
- * - Registrar eventos de teste com SLF4J para rastreabilidade.
- *
+ * <p>
+ * - Ler a configuracao de browser informada na execucao.
+ * <p>
  * @author Thiago Santana
  * @version 1.0
  */
 public class Hooks {
 
     private static final Logger logger = LoggerFactory.getLogger(Hooks.class);
+    private static final String LOG_DIR = "logs";
 
-    private static final String LOG_DIR = "target/logs";
-
+    /**
+     * Inicializa os recursos necessarios antes da execucao de cada cenario.
+     * <p>
+     * Responsabilidades:
+     * - Registrar o inicio do cenario;
+     * <p>
+     * - Ler o browser configurado por propriedade de sistema;
+     * <p>
+     * - Criar e armazenar o driver da execucao corrente.
+     * <p>
+     * @param scenario cenario em execucao no Cucumber
+     */
     @Before
     public void setup(Scenario scenario) {
         logger.info("=== INICIANDO CENARIO: {} ===", scenario.getName());
 
         String browser = System.getProperty("browser", "chrome");
         addAttachment("Browser:", browser);
-
         logger.info("Browser configurado: {}", browser);
 
         DriverFactory.Browser browserEnum;
         try {
             browserEnum = DriverFactory.Browser.valueOf(browser.toUpperCase());
         } catch (IllegalArgumentException e) {
-            logger.error("Browser inválido: {}. Usando Chrome como padrão.", browser, e);
+            logger.error("Browser invalido: {}. Usando Chrome como padrao.", browser, e);
             browserEnum = DriverFactory.Browser.CHROME;
         }
 
@@ -55,15 +67,37 @@ public class Hooks {
             logger.info("Driver criado com sucesso para o browser: {}", browserEnum);
         } catch (Exception e) {
             logger.error("Falha ao criar o driver para o browser: {}", browserEnum, e);
-            throw new RuntimeException("Erro na configuração do driver", e);
+            throw new RuntimeException("Erro na configuracao do driver", e);
         }
     }
 
+    /**
+     * Finaliza a execucao do cenario e captura as evidencias necessarias.
+     * <p>
+     * Responsabilidades:
+     * - Registrar o resultado final do cenario;
+     * - Capturar screenshot de sucesso ou falha;
+     * - Anexar o arquivo de log ao Allure em caso de falha;
+     * - Encerrar o driver da execucao atual.
+     *
+     * @param scenario cenario em execucao no Cucumber
+     */
     @After
     public void tearDown(Scenario scenario) {
         if (scenario.isFailed()) {
             logger.error("=== CENARIO FALHOU: {} ===", scenario.getName());
             ScreenshotUtil.attachScreenshot("Erro " + scenario.getName());
+            try {
+                String latestLogFile = getLatestLogFile();
+                if (latestLogFile != null) {
+                    addAttachment("Arquivo de Log", "text/plain", latestLogFile);
+                    logger.error("Arquivo de log anexado ao relatorio: {}", latestLogFile);
+                } else {
+                    logger.warn("Nenhum arquivo de log encontrado para anexar");
+                }
+            } catch (Exception e) {
+                logger.error("Erro ao anexar arquivo de log", e);
+            }
         } else {
             logger.info("=== CENARIO EXECUTADO COM SUCESSO: {} ===", scenario.getName());
             ScreenshotUtil.attachScreenshot("Sucesso " + scenario.getName());
@@ -79,6 +113,16 @@ public class Hooks {
         logger.info("=== FIM DO CENARIO ===\n");
     }
 
+    /**
+     * Localiza o arquivo de log mais apropriado para anexo no Allure.
+     * <p>
+     * Responsabilidades:
+     * - Verificar a existencia do diretorio de logs;
+     * - Priorizar o arquivo ativo `test.log`;
+     * - Retornar o arquivo rotacionado mais recente quando necessario.
+     *
+     * @return caminho absoluto do arquivo de log ou null quando inexistente
+     */
     private String getLatestLogFile() {
         File logDirectory = new File(LOG_DIR);
         if (!logDirectory.exists() || !logDirectory.isDirectory()) {
