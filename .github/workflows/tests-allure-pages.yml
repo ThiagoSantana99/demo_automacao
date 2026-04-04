@@ -10,15 +10,19 @@ on:
       cucumber_tag:
         description: "Tag do Cucumber para filtrar a execucao"
         required: false
-        default: "@E2E"
+        default: "@AGI"
       browser:
         description: "Browser da execucao"
         required: false
-        default: "chrome"
+        default: "edge"
       parallel_count:
         description: "Quantidade de threads para o DataProvider"
         required: false
         default: "2"
+      headless:
+        description: "Executa os testes em modo headless"
+        required: false
+        default: "false"
 
 permissions:
   contents: read
@@ -50,7 +54,7 @@ jobs:
           -Dcucumber.filter.tags=${{ github.event.inputs.cucumber_tag || '@AGI' }}
           -Dbrowser=${{ github.event.inputs.browser || 'chrome' }}
           -Ddataproviderthreadcount=${{ github.event.inputs.parallel_count || '2' }}
-          -Dheadless=true
+          -Dheadless=${{ github.event.inputs.headless || 'true' }}
 
       - name: Upload Allure results
         if: always()
@@ -118,10 +122,10 @@ jobs:
       - name: Prepare GitHub Pages content
         run: |
           New-Item -ItemType Directory -Path target\pages -Force | Out-Null
-          New-Item -ItemType Directory -Path target\pages\report -Force | Out-Null
+          New-Item -ItemType Directory -Path target\pages\reports -Force | Out-Null
           New-Item -ItemType Directory -Path target\pages\javadoc -Force | Out-Null
           Copy-Item -Path README.md -Destination target\pages\README.md -Force
-          Copy-Item -Path target\allure-report\* -Destination target\pages\report -Recurse -Force
+          Copy-Item -Path target\allure-report\* -Destination target\pages\reports -Recurse -Force
           Copy-Item -Path target\apidocs\* -Destination target\pages\javadoc -Recurse -Force
           @'
           <!DOCTYPE html>
