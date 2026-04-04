@@ -78,9 +78,10 @@ public class DriverFactory {
                     edgeOptions.addArguments("--headless=new");
                 }
                 driver = new EdgeDriver(edgeOptions);
-//                driver.manage().window().setSize(new Dimension(1920, 1080));
+                driver.manage().window().setSize(new Dimension(1920, 1080));
                 driver.manage().window().maximize();
                 return driver;
+
 
             case CHROME:
             default:
@@ -96,7 +97,7 @@ public class DriverFactory {
                     chromeOptions.addArguments("--headless=new");
                 }
                 driver = new ChromeDriver(chromeOptions);
-//                driver.manage().window().setSize(new Dimension(1920, 1080));
+                driver.manage().window().setSize(new Dimension(1920, 1080));
                 driver.manage().window().maximize();
                 driver.manage().deleteAllCookies();
                 return driver;
